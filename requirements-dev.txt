@@ -1,0 +1,7 @@
+flake8
+gtirb-test-helpers
+pkginfo
+pytest
+pytest-cov
+requests
+twine

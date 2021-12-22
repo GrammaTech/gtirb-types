@@ -1,0 +1,14 @@
+*.pyc
+*~
+*.egg-info
+__pycache__/
+_build/
+build/
+dist/
+*.eggs
+MANIFEST
+.DS_Store
+.coverage
+.cache
+.vscode
+venv/
