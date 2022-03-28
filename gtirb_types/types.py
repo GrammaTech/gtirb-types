@@ -306,9 +306,10 @@ class GtirbTypes:
 
     @classmethod
     def build_types(cls: Type[GtirbTypes], module: gtirb.Module) -> GtirbTypes:
-        """Build the GtirbTypes object froma given GTIRB Module
+        """Build the GtirbTypes object from a given GTIRB Module
         :param module: Module to load GTIRB types from
-        :returns: The loaded GtirbTypes object"""
+        :returns: The loaded GtirbTypes object
+        """
         obj = cls(module)
 
         for key in obj.type_table.data.keys():
