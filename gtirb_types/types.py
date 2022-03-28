@@ -72,6 +72,10 @@ class AbstractType(abc.ABC):
             return data[0]
         return data
 
+    @property
+    def name(self) -> Optional[str]:
+        return self.types.names.get(self.uuid)
+
 
 @dataclass
 class UnknownType(AbstractType):
@@ -91,7 +95,7 @@ class BoolType(AbstractType):
 
 @dataclass
 class IntType(AbstractType):
-    """ Integeral type """
+    """ Integral type """
 
     is_signed: bool
     size: int
@@ -244,17 +248,54 @@ class GtirbTypes:
     def __init__(self, module: gtirb.Module):
         self.module = module
         self.map = {}
-        self._load_table()
+        self.names = {}
+        self.prototypes = {}
+        self._load_tables()
 
-    def _load_table(self):
-        """ Load the aux data table into memory """
-        if "typeTable" in self.module.aux_data:
-            self.type_table = self.module.aux_data["typeTable"]
+    def _load_or_init_table(self, name: str, aux_format: str) -> gtirb.AuxData:
+        """Load or initialize aux-data on demand for a given name
+        :param name: Name of the aux data table to load or initialize
+        :param aux_format: Format to use if the aux data needs to be initialized
+        :returns: Loaded aux data information
+        """
+        if name in self.module.aux_data:
+            return self.module.aux_data[name]
         else:
-            self.type_table = gtirb.AuxData(
-                {}, f"mapping<UUID,{self.SOME_TYPE}>"
-            )
-            self.module.aux_data["typeTable"] = self.type_table
+            aux_data = gtirb.AuxData({}, aux_format)
+            self.module.aux_data[name] = aux_data
+            return aux_data
+
+    def _load_tables(self):
+        """ Load the aux data tables into memory """
+        self.type_table = self._load_or_init_table(
+            "typeTable", f"mapping<UUID,{self.SOME_TYPE}>"
+        )
+        self.name_table = self._load_or_init_table(
+            "typeNameTable", "mapping<UUID,string>"
+        )
+        self.prototype_table = self._load_or_init_table(
+            "prototypeTable", "mapping<string,string>"
+        )
+
+    def add_type(self, type_: AbstractType, name: Optional[str] = None):
+        """Add a type and its name if available to the GTIRB module
+        :param type_: Type object to be added
+        :param name: If available, the name of the type
+        """
+        self.map[type_.uuid] = type_
+
+        if name is not None:
+            self.names[type_.uuid] = name
+
+    def add_prototype(self, type_: FunctionType, name: str, uuid: UUID):
+        """Add a prototype to the GTIRB module
+        :param type_: Function type object to save
+        :param name: Name of the function being stored
+        :param uuid: UUID of the function being stored
+        """
+        self.map[type_.uuid] = type_
+        self.names[type_.uuid] = name
+        self.prototypes[uuid] = type_.uuid
 
     def get_type(self, uuid: UUID) -> Optional[AbstractType]:
         """Get a type object for a given UUID
