@@ -25,9 +25,11 @@ __all__ = [
     "VoidType",
     "GtirbTypes",
     "__version__",
+    "c_str",
 ]
 
 
+from .display import c_str
 from .types import (
     AbstractType,
     UnknownType,

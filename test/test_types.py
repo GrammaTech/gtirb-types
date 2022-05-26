@@ -3,6 +3,7 @@ import gtirb_test_helpers
 import pytest
 
 from gtirb_types import (
+    c_str,
     UnknownType,
     BoolType,
     IntType,
@@ -30,30 +31,30 @@ def test_types(tmp_path):
     types = GtirbTypes(module)
 
     # Construct all of the types we have
-    num = IntType(uuid4(), types, False, 32)
+    num = types.add_type(IntType(uuid4(), types, False, 32))
 
     tests = [
         num,
-        UnknownType(uuid4(), types, 32),
-        BoolType(uuid4(), types),
-        CharType(uuid4(), types, 32),
-        FloatType(uuid4(), types, 32),
-        FunctionType(uuid4(), types, num.uuid, [num.uuid]),
-        PointerType(uuid4(), types, num.uuid),
-        ArrayType(uuid4(), types, num.uuid, 4),
-        AliasType(uuid4(), types, num.uuid),
-        StructType(uuid4(), types, 4, [(0, num.uuid)]),
-        VoidType(uuid4(), types),
+        types.add_type(UnknownType(uuid4(), types, 32)),
+        types.add_type(BoolType(uuid4(), types)),
+        types.add_type(CharType(uuid4(), types, 32)),
+        types.add_type(FloatType(uuid4(), types, 32)),
+        types.add_type(FunctionType(uuid4(), types, num.uuid, [num.uuid])),
+        types.add_type(PointerType(uuid4(), types, num.uuid)),
+        types.add_type(ArrayType(uuid4(), types, num.uuid, 4)),
+        types.add_type(AliasType(uuid4(), types, num.uuid), "test"),
+        types.add_type(StructType(uuid4(), types, 4, [(0, num.uuid)]), "test"),
+        types.add_type(VoidType(uuid4(), types)),
     ]
 
-    types.map = {type_.uuid: type_ for type_ in tests}
     types.save()
     output = tmp_path / "tmp.gtirb"
     ir.save_protobuf(str(output))
 
     ir2 = gtirb.IR.load_protobuf(str(output))
     module2 = ir2.modules[0]
-    types2 = GtirbTypes.build_types(module2)
+    types2 = GtirbTypes(module2)
+    assert types2.names == types.names
 
     # Fix types field to new types for comparison's sake
     for type_ in tests:
@@ -63,12 +64,14 @@ def test_types(tmp_path):
         assert found_type == type_
 
         if isinstance(type_, StructType):
+            assert type_.name == "test"
             assert len(found_type.fields) == len(type_.fields)
 
             for (lhs, rhs) in zip(found_type.fields, type_.fields):
                 assert lhs == rhs
         elif isinstance(type_, AliasType):
             assert type_.pointed_to == found_type.pointed_to
+            assert type_.name == "test"
         elif isinstance(type_, PointerType):
             assert type_.pointed_to == found_type.pointed_to
         elif isinstance(type_, FunctionType):
@@ -79,3 +82,44 @@ def test_types(tmp_path):
                 found_type.argument_types, type_.argument_types
             ):
                 assert lhs == rhs
+
+
+@pytest.mark.commit
+def test_c_str():
+    _, module = gtirb_test_helpers.create_test_module(
+        gtirb.Module.FileFormat.ELF,
+        gtirb.Module.ISA.X64,
+    )
+
+    types = GtirbTypes(module)
+
+    # Construct all of the types we have
+    num = types.add_type(IntType(uuid4(), types, False, 4))
+    assert c_str(num) == "int32_t"
+    assert c_str(UnknownType(uuid4(), types, 8)) == "char[8]"
+    assert c_str(BoolType(uuid4(), types)) == "bool"
+    assert c_str(CharType(uuid4(), types, 1)) == "char"
+    assert c_str(FloatType(uuid4(), types, 4)) == "float"
+    assert c_str(FloatType(uuid4(), types, 8)) == "double"
+    assert (
+        c_str(FunctionType(uuid4(), types, num.uuid, [num.uuid]))
+        == "int32_t (*)(int32_t)"
+    )
+    assert c_str(PointerType(uuid4(), types, num.uuid)) == "int32_t*"
+    assert c_str(ArrayType(uuid4(), types, num.uuid, 4)) == "int32_t[4]"
+    assert (
+        c_str(types.add_type(AliasType(uuid4(), types, num.uuid), "test"))
+        == "typedef test = int32_t"
+    )
+    assert (
+        c_str(
+            types.add_type(
+                StructType(uuid4(), types, 8, [(0, num.uuid)]), "test"
+            )
+        )
+        == """struct test {
+\tint32_t field_0;
+\tchar gap_4[4];
+}"""
+    )
+    assert c_str(VoidType(uuid4(), types)) == "void"

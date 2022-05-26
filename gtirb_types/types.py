@@ -16,6 +16,7 @@ import dataclasses
 from typing import Any, List, Optional, Tuple, Type, TypeVar
 import abc
 import gtirb
+import logging
 from uuid import UUID
 
 from gtirb.serialization import Variant
@@ -128,12 +129,12 @@ class FunctionType(AbstractType):
 
     @property
     def return_type(self) -> Optional[AbstractType]:
-        return _load_type(self.types, self._return_type)
+        return self.types.map.get(self._return_type)
 
     @property
     def argument_types(self) -> List[Optional[AbstractType]]:
         return [
-            _load_type(self.types, argument_type)
+            self.types.map.get(argument_type)
             for argument_type in self._argument_types
         ]
 
@@ -147,7 +148,7 @@ class PointerType(AbstractType):
 
     @property
     def pointed_to(self) -> Optional[AbstractType]:
-        return _load_type(self.types, self._pointed_to)
+        return self.types.map.get(self._pointed_to)
 
 
 @dataclass
@@ -160,7 +161,7 @@ class ArrayType(AbstractType):
 
     @property
     def element_type(self) -> Optional[AbstractType]:
-        return _load_type(self.types, self._element_type)
+        return self.types.map.get(self._element_type)
 
 
 @dataclass
@@ -172,7 +173,7 @@ class AliasType(AbstractType):
 
     @property
     def pointed_to(self) -> Optional[AbstractType]:
-        return _load_type(self.types, self._pointed_to)
+        return self.types.map.get(self._pointed_to)
 
 
 @dataclass
@@ -186,7 +187,7 @@ class StructType(AbstractType):
     @property
     def fields(self) -> List[Tuple[int, Optional[AbstractType]]]:
         return [
-            (offset, _load_type(self.types, uuid))
+            (offset, self.types.map.get(uuid))
             for (offset, uuid) in self._fields
         ]
 
@@ -250,7 +251,8 @@ class GtirbTypes:
         self.map = {}
         self.names = {}
         self.prototypes = {}
-        self._load_tables()
+        self._load_aux_tables()
+        self._load_internal_tables()
 
     def _load_or_init_table(self, name: str, aux_format: str) -> gtirb.AuxData:
         """Load or initialize aux-data on demand for a given name
@@ -265,7 +267,7 @@ class GtirbTypes:
             self.module.aux_data[name] = aux_data
             return aux_data
 
-    def _load_tables(self):
+    def _load_aux_tables(self):
         """ Load the aux data tables into memory """
         self.type_table = self._load_or_init_table(
             "typeTable", f"mapping<UUID,{self.SOME_TYPE}>"
@@ -274,18 +276,39 @@ class GtirbTypes:
             "typeNameTable", "mapping<UUID,string>"
         )
         self.prototype_table = self._load_or_init_table(
-            "prototypeTable", "mapping<string,string>"
+            "prototypeTable", "mapping<UUID,UUID>"
         )
 
-    def add_type(self, type_: AbstractType, name: Optional[str] = None):
+    def _load_internal_tables(self):
+        """Load the aux-data tables into the internal dictionaries"""
+        for (uuid, variant) in self.type_table.data.items():
+            if variant.index >= len(TYPE_VARIANT):
+                raise ValueError(
+                    f"Variant index {variant.index} is above supported "
+                    f"{len(TYPE_VARIANT)}"
+                )
+
+            self.map[uuid] = TYPE_VARIANT[variant.index].from_protobuf(
+                self, uuid
+            )
+
+        self.names = self.name_table.data.copy()
+        self.prototypes = self.prototype_table.data.copy()
+
+    def add_type(
+        self, type_: AbstractType, name: Optional[str] = None
+    ) -> AbstractType:
         """Add a type and its name if available to the GTIRB module
         :param type_: Type object to be added
         :param name: If available, the name of the type
+        :returns: Added type
         """
         self.map[type_.uuid] = type_
 
-        if name is not None:
+        if name:
             self.names[type_.uuid] = name
+
+        return type_
 
     def add_prototype(self, type_: FunctionType, name: str, uuid: UUID):
         """Add a prototype to the GTIRB module
@@ -310,12 +333,11 @@ class GtirbTypes:
         :param module: Module to load GTIRB types from
         :returns: The loaded GtirbTypes object
         """
-        obj = cls(module)
-
-        for key in obj.type_table.data.keys():
-            obj.map[key] = _load_type(obj, key)
-
-        return obj
+        logging.warning(
+            "GtirbTypes.build_types is now deprecated, use the constructor "
+            "GtirbTypes() directly instead"
+        )
+        return cls(module)
 
     def save(self):
         """ Save the in-memory type objects to the module's aux data table """
@@ -323,3 +345,6 @@ class GtirbTypes:
             self.type_table.data[key] = Variant(
                 TYPE_VARIANT.index(type(value)), value.to_protobuf()
             )
+
+        self.prototype_table.data = self.prototypes
+        self.name_table.data = self.names
