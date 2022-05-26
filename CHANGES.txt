@@ -1,2 +1,8 @@
+0.2.0:
+- Deprecated GtirbTypes.build_types
+- Added prototypeTable and typeNameTable support
+- Added add_type and add_prototype to GtirbTypes
+- Added c_str for C-string printing
+
 0.1.0:
 - initial release
