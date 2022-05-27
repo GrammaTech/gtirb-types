@@ -1,2 +1,2 @@
-gtirb
+gtirb~=1.10.7.dev0
 graphviz
