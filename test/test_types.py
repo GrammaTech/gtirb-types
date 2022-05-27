@@ -95,7 +95,8 @@ def test_c_str():
 
     # Construct all of the types we have
     num = types.add_type(IntType(uuid4(), types, False, 4))
-    assert c_str(num) == "int32_t"
+    assert c_str(num) == "uint32_t"
+    assert c_str(IntType(uuid4(), types, True, 4)) == "int32_t"
     assert c_str(UnknownType(uuid4(), types, 8)) == "char[8]"
     assert c_str(BoolType(uuid4(), types)) == "bool"
     assert c_str(CharType(uuid4(), types, 1)) == "char"
@@ -103,13 +104,13 @@ def test_c_str():
     assert c_str(FloatType(uuid4(), types, 8)) == "double"
     assert (
         c_str(FunctionType(uuid4(), types, num.uuid, [num.uuid]))
-        == "int32_t (*)(int32_t)"
+        == "uint32_t (*)(uint32_t)"
     )
-    assert c_str(PointerType(uuid4(), types, num.uuid)) == "int32_t*"
-    assert c_str(ArrayType(uuid4(), types, num.uuid, 4)) == "int32_t[4]"
+    assert c_str(PointerType(uuid4(), types, num.uuid)) == "uint32_t*"
+    assert c_str(ArrayType(uuid4(), types, num.uuid, 4)) == "uint32_t[4]"
     assert (
         c_str(types.add_type(AliasType(uuid4(), types, num.uuid), "test"))
-        == "typedef test = int32_t"
+        == "typedef test = uint32_t"
     )
     assert (
         c_str(
@@ -118,8 +119,36 @@ def test_c_str():
             )
         )
         == """struct test {
-\tint32_t field_0;
+\tuint32_t field_0;
 \tchar gap_4[4];
 }"""
     )
     assert c_str(VoidType(uuid4(), types)) == "void"
+    assert (
+        c_str(
+            FunctionType(
+                uuid4(),
+                types,
+                num.uuid,
+                [
+                    types.add_type(
+                        StructType(uuid4(), types, 8, [(0, num.uuid)]), "test"
+                    ).uuid
+                ],
+            )
+        )
+        == "uint32_t (*)(struct test)"
+    )
+    assert (
+        c_str(
+            types.add_type(
+                StructType(uuid4(), types, 12, [(8, num.uuid), (0, num.uuid)]),
+                "test",
+            )
+        )
+        == """struct test {
+\tuint32_t field_0;
+\tchar gap_4[4];
+\tuint32_t field_8;
+}"""
+    )

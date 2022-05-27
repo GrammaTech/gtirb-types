@@ -37,7 +37,7 @@ def c_str(type_: AbstractType, define: bool = True) -> str:
     :returns: The C-string
     """
     if isinstance(type_, IntType):
-        signedness = "u" if type_.is_signed else ""
+        signedness = "" if type_.is_signed else "u"
         return f"{signedness}int{type_.size*8}_t"
     elif isinstance(type_, FloatType):
         if type_.size == 4:
@@ -88,7 +88,7 @@ def c_str(type_: AbstractType, define: bool = True) -> str:
                     )
                     loc += field_type.size
                 else:
-                    field_keys = list(fields.keys())
+                    field_keys = sorted(fields.keys())
                     key_index = bisect.bisect_left(field_keys, loc)
                     field_offset = (
                         field_keys[key_index]
@@ -103,8 +103,11 @@ def c_str(type_: AbstractType, define: bool = True) -> str:
         else:
             return f"struct {type_.name}"
     elif isinstance(type_, FunctionType):
-        print(type_)
-        return f"{c_str(type_.return_type)} (*)({', '.join(map(c_str, type_.argument_types))})"
+        ret_str = c_str(type_.return_type, False)
+        args_str = ", ".join(
+            map(lambda x: c_str(x, False), type_.argument_types)
+        )
+        return f"{ret_str} (*)({args_str})"
     elif isinstance(type_, VoidType):
         return "void"
 
