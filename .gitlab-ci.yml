@@ -31,6 +31,8 @@ export_internal:
   stage: export
   image: python:3.7-slim
   script:
+    - apt -y update
+    - apt install -y --no-install-recommends wget
     - pip install -r requirements-dev.txt
     - python3 setup.py bdist_wheel --dist-dir=$CI_PROJECT_DIR/dist
     - VERSION=$(python3 -c "from imp import load_source; pkginfo = load_source('pkginfo.version', 'gtirb_types/version.py'); print(pkginfo.__version__)")
