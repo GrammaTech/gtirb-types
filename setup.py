@@ -12,11 +12,16 @@ here = path.abspath(path.dirname(__file__))
 with io.open(path.join(here, "requirements.txt"), encoding="utf-8") as f:
     install_requires = [x.strip() for x in f.read().split("\n")]
 
+with io.open(path.join(here, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
+
 setup(
     name="gtirb-types",
     author="GrammaTech, Inc.",
     version=__version__,
     description="Utilities for dealing with types in GTIRB",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3.7",
