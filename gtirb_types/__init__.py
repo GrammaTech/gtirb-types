@@ -26,9 +26,10 @@ __all__ = [
     "GtirbTypes",
     "__version__",
     "c_str",
+    "GTIRBLattice",
 ]
 
-
+from .compare import GTIRBLattice
 from .display import c_str
 from .types import (
     AbstractType,
