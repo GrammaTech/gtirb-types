@@ -16,7 +16,7 @@ import uuid
     ],
 )
 @pytest.mark.commit
-def test_gtirb_latitice(lhs, rhs, score):
+def test_gtirb_lattice(lhs, rhs, score):
     _, module = create_test_module(
         gtirb.Module.FileFormat.ELF, gtirb.Module.ISA.X64
     )
