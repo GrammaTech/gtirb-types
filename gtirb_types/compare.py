@@ -108,20 +108,17 @@ class GTIRBLattice:
     @property
     def lattice_height(self) -> int:
         """Get the height of the lattice being used"""
-        return self._lengths[self.TOP][self.BOT]
+        return networkx.dag_longest_path_length(self._graph)
 
-    def compare_types(self, lhs: AbstractType, rhs: AbstractType) -> int:
+    def compare_types(self, lhs: str, rhs: str) -> int:
         """Get the height between two types
         :param lhs: Left hand side type to compare
         :param rhs: Right hand side type to compare
         :returns: Height between two types"""
-        lhs_s = self.from_type(lhs)
-        rhs_s = self.from_type(rhs)
-
-        if rhs_s in self._lengths[lhs_s]:
-            return self._lengths[lhs_s][rhs_s]
-        elif lhs_s in self._lengths[rhs_s]:
-            return self._lengths[rhs_s][lhs_s]
+        if rhs in self._lengths[lhs]:
+            return self._lengths[lhs][rhs]
+        elif lhs in self._lengths[rhs]:
+            return self._lengths[rhs][lhs]
         else:
             return self.lattice_height
 

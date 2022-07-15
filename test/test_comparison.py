@@ -5,19 +5,24 @@ import pytest
 import uuid
 
 
+@pytest.mark.parametrize(
+    "lhs,rhs,score",
+    [
+        ("int32_t", "uint32_t", 4),
+        ("int32_t", "int", 1),
+        ("uint32_t", "uint", 1),
+        ("uint32_t", "num", 2),
+        ("float", "int", 4),
+    ],
+)
 @pytest.mark.commit
-def test_gtirb_latitice():
+def test_gtirb_latitice(lhs, rhs, score):
     _, module = create_test_module(
         gtirb.Module.FileFormat.ELF, gtirb.Module.ISA.X64
     )
 
     lattice = GTIRBLattice()
-    types = GtirbTypes(module)
-
-    lhs = IntType(uuid.uuid4(), types, True, 4)
-    rhs = IntType(uuid.uuid4(), types, False, 4)
-
-    assert lattice.compare_types(lhs, rhs) == 2
+    assert lattice.compare_types(lhs, rhs) == score
 
 
 @pytest.mark.commit
