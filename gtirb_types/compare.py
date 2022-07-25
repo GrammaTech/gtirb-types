@@ -172,12 +172,30 @@ class GTIRBLattice:
 
         for i in valid_offsets:
             if i in lhs_fields and i in rhs_fields:
-                lhs_lat = self.from_type(lhs_fields[i])
-                rhs_lat = self.from_type(rhs_fields[i])
-
-                avg += self.compare_lattice(lhs_lat, rhs_lat)
+                avg += self.compare_types(lhs_fields[i], rhs_fields[i])
             else:
                 avg += self.lattice_height
 
         avg /= len(valid_offsets)
         return field_ratio + avg / self.lattice_height
+
+    def compare_types(self, lhs: AbstractType, rhs: AbstractType) -> float:
+        """Compare type information for gtirb-types objects
+        :param lhs: Left hand side structure
+        :param rhs: Right hand side structure
+        :returns: Score of structure similarity
+        """
+        if isinstance(lhs, StructType) and isinstance(rhs, StructType):
+            return self.compare_structs(lhs, rhs)
+        elif isinstance(
+            lhs, (FunctionType, PointerType, ArrayType, StructType)
+        ) or isinstance(
+            rhs, (FunctionType, PointerType, ArrayType, StructType)
+        ):
+            # TODO - Is this correct? Probably not
+            return self.lattice_height
+        else:
+            lhs_lat = self.from_type(lhs)
+            rhs_lat = self.from_type(rhs)
+
+            return self.compare_lattice(lhs_lat, rhs_lat)

@@ -67,5 +67,5 @@ def test_gtirb_struct_compare():
         )
     )
 
-    compare = lattice.compare_structs(struct1, struct2)
+    compare = lattice.compare_types(struct1, struct2)
     assert compare == 1.0
