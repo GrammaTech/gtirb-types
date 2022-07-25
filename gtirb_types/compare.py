@@ -110,11 +110,11 @@ class GTIRBLattice:
         """Get the height of the lattice being used"""
         return networkx.dag_longest_path_length(self._graph)
 
-    def compare_types(self, lhs: str, rhs: str) -> int:
-        """Get the height between two types
+    def compare_lattice(self, lhs: str, rhs: str) -> int:
+        """Get the height between two lattice elments
         :param lhs: Left hand side type to compare
         :param rhs: Right hand side type to compare
-        :returns: Height between two types"""
+        :returns: Height between two lattice elements"""
         if rhs in self._lengths[lhs]:
             return self._lengths[lhs][rhs]
         elif lhs in self._lengths[rhs]:
@@ -150,3 +150,34 @@ class GTIRBLattice:
             pass
 
         return num_correct / total_number
+
+    def compare_structs(self, lhs: StructType, rhs: StructType) -> float:
+        """Do a structure-to-structure comparison
+        :param lhs: Left hand side structure
+        :param rhs: Right hand side structure
+        :returns: Score of structure similarity
+        """
+        lhs_fieldcount = 1 - 1 / len(lhs.fields)
+        rhs_fieldcount = 1 - 1 / len(rhs.fields)
+        field_ratio = abs(lhs_fieldcount - rhs_fieldcount)
+
+        lhs_fields = dict(lhs.fields)
+        rhs_fields = dict(rhs.fields)
+
+        valid_offsets = {off for off, _ in lhs.fields} | {
+            off for off, _ in rhs.fields
+        }
+
+        avg = 0.0
+
+        for i in valid_offsets:
+            if i in lhs_fields and i in rhs_fields:
+                lhs_lat = self.from_type(lhs_fields[i])
+                rhs_lat = self.from_type(rhs_fields[i])
+
+                avg += self.compare_lattice(lhs_lat, rhs_lat)
+            else:
+                avg += self.lattice_height
+
+        avg /= len(valid_offsets)
+        return field_ratio + avg / self.lattice_height
