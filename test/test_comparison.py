@@ -14,11 +14,11 @@ import uuid
 @pytest.mark.parametrize(
     "lhs,rhs,score",
     [
-        ("int32_t", "uint32_t", 4),
+        ("int32_t", "uint32_t", 5),
         ("int32_t", "int", 1),
         ("uint32_t", "uint", 1),
         ("uint32_t", "num", 2),
-        ("float", "int", 4),
+        ("float", "int", 5),
     ],
 )
 @pytest.mark.commit
