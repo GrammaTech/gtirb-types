@@ -23,12 +23,14 @@ import uuid
 )
 @pytest.mark.commit
 def test_gtirb_lattice(lhs, rhs, score):
+    """Validate lattice comparisons"""
     lattice = GTIRBLattice()
     assert lattice.compare_lattice(lhs, rhs) == score
 
 
 @pytest.mark.commit
 def test_gtirb_pointer_height():
+    """Validate the computation of multi-level pointer accuracy"""
     _, module = create_test_module(
         gtirb.Module.FileFormat.ELF, gtirb.Module.ISA.X64
     )
@@ -48,6 +50,7 @@ def test_gtirb_pointer_height():
 
 @pytest.mark.commit
 def test_gtirb_struct_compare():
+    """"Validate the comparison of structured types"""
     _, module = create_test_module(
         gtirb.Module.FileFormat.ELF, gtirb.Module.ISA.X64
     )
