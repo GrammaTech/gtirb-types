@@ -36,6 +36,13 @@ def c_str(type_: AbstractType, define: bool = True) -> str:
         definition (True), though when recursing down types it becomes False.
     :returns: The C-string
     """
+    if type_.name:
+        name = type_.name
+    else:
+        # Generate a rough/unique name in case we don't have one avaiable to us
+        uuid_str = str(type_.uuid).replace("-", "_")
+        name = f"{type(type_).__name__}_{uuid_str}"
+
     if isinstance(type_, IntType):
         signedness = "" if type_.is_signed else "u"
         return f"{signedness}int{type_.size*8}_t"
@@ -67,10 +74,10 @@ def c_str(type_: AbstractType, define: bool = True) -> str:
     elif isinstance(type_, AliasType):
         if define:
             assert type_.pointed_to
-            return f"typedef {type_.name} = {c_str(type_.pointed_to, False)}"
+            return f"typedef {name} = {c_str(type_.pointed_to, False)}"
         else:
             if type_.name:
-                return type_.name
+                return name
             elif type_.pointed_to:
                 return c_str(type_.pointed_to, False)
     elif isinstance(type_, StructType):
@@ -99,9 +106,9 @@ def c_str(type_: AbstractType, define: bool = True) -> str:
                     field_strs += f"\tchar gap_{loc:x}[{dist}];\n"
                     loc = field_offset
 
-            return f"struct {type_.name} {{\n{field_strs}}}"
+            return f"struct {name} {{\n{field_strs}}}"
         else:
-            return f"struct {type_.name}"
+            return f"struct {name}"
     elif isinstance(type_, FunctionType):
         ret_str = c_str(type_.return_type, False)
         args_str = ", ".join(

@@ -112,6 +112,13 @@ def test_c_str():
         c_str(types.add_type(AliasType(uuid4(), types, num.uuid), "test"))
         == "typedef test = uint32_t"
     )
+    type_id = uuid4()
+    calc_name = "AliasType_" + str(type_id).replace("-", "_")
+
+    assert (
+        c_str(types.add_type(AliasType(type_id, types, num.uuid)))
+        == f"typedef {calc_name} = uint32_t"
+    )
     assert (
         c_str(
             types.add_type(
