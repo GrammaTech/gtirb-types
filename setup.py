@@ -32,6 +32,7 @@ setup(
         "console_scripts": [
             "gtirb-types=gtirb_types.graph:main",
             "gtirb-types-strip=gtirb_types.strip:main",
+            "gtirb-types-evaluate=gtirb_types.evaluate:main",
         ],
     },
     package_dir={"gtirb_types": "gtirb_types"},

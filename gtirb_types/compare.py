@@ -54,10 +54,13 @@ class GTIRBLattice:
             self._graph.add_edge(self.INT, self.INT_N[size])
             self._graph.add_edge(self.UINT, self.UINT_N[size])
 
+            self._graph.add_edge(self.UINT_N[size], self.CHAR_N[size])
+
             self._graph.add_edge(self.NUM_N[size], self.INT_N[size])
             self._graph.add_edge(self.NUM_N[size], self.UINT_N[size])
 
             self._graph.add_edge(self.INT_N[size], self.BOT)
+            self._graph.add_edge(self.CHAR_N[size], self.BOT)
             self._graph.add_edge(self.UINT_N[size], self.BOT)
 
         for size in self.float_sizes:
@@ -103,6 +106,7 @@ class GTIRBLattice:
 
             return cls.from_type(pointed)
         else:
+            print(f"Unknown object {type_obj}")
             raise NotImplementedError()
 
     @property
@@ -179,6 +183,34 @@ class GTIRBLattice:
         avg /= len(valid_offsets)
         return field_ratio + avg / self.lattice_height
 
+    def compare_functions(self, lhs: FunctionType, rhs: FunctionType) -> float:
+        """Do a function-wise comparison of types
+        :param lhs: Left hand side function type
+        :param rhs: Right hand side function type
+        :returns: Average score of types
+        """
+        if not lhs.return_type or not rhs.return_type:
+            raise ValueError(f"Missing return types for {lhs}/{rhs}")
+
+        # Get all argument scores
+        arg_scores = []
+
+        for lhs_arg, rhs_arg in zip(lhs.argument_types, rhs.argument_types):
+            if not lhs_arg or not rhs_arg:
+                raise ValueError(
+                    f"Missing argument types for {lhs_arg}/{rhs_arg}"
+                )
+
+            arg_scores.append(self.compare_types(lhs_arg, rhs_arg))
+
+        # Missing arguments are considered TOP
+        for _ in range(abs(len(lhs.argument_types) - len(rhs.argument_types))):
+            arg_scores.append(self.lattice_height)
+
+        ret_score = self.compare_types(lhs.return_type, rhs.return_type)
+        all_scores = arg_scores + [ret_score]
+        return sum(all_scores) / len(all_scores)
+
     def compare_types(self, lhs: AbstractType, rhs: AbstractType) -> float:
         """Compare type information for gtirb-types objects
         :param lhs: Left hand side structure
@@ -187,6 +219,10 @@ class GTIRBLattice:
         """
         if isinstance(lhs, StructType) and isinstance(rhs, StructType):
             return self.compare_structs(lhs, rhs)
+        elif isinstance(lhs, FunctionType) and isinstance(rhs, FunctionType):
+            return self.compare_functions(lhs, rhs)
+        elif isinstance(lhs, PointerType) and isinstance(rhs, PointerType):
+            return self.compare_types(lhs.pointed_to, rhs.pointed_to)
         elif isinstance(
             lhs, (FunctionType, PointerType, ArrayType, StructType)
         ) or isinstance(
