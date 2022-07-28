@@ -217,6 +217,11 @@ class GTIRBLattice:
         :param rhs: Right hand side structure
         :returns: Score of structure similarity
         """
+        if isinstance(lhs, AliasType):
+            return self.compare_types(lhs.pointed_to, rhs)
+        elif isinstance(rhs, AliasType):
+            return self.compare_types(lhs, rhs.pointed_to)
+
         if isinstance(lhs, StructType) and isinstance(rhs, StructType):
             return self.compare_structs(lhs, rhs)
         elif isinstance(lhs, FunctionType) and isinstance(rhs, FunctionType):
@@ -234,4 +239,7 @@ class GTIRBLattice:
             lhs_lat = self.from_type(lhs)
             rhs_lat = self.from_type(rhs)
 
-            return self.compare_lattice(lhs_lat, rhs_lat)
+            lhs_score = self.compare_lattice(lhs_lat, rhs_lat)
+            rhs_score = self.compare_lattice(lhs_lat, rhs_lat)
+
+            return min(lhs_score, rhs_score)
