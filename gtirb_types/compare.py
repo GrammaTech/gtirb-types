@@ -1,3 +1,4 @@
+from functools import cached_property
 from .types import (
     AbstractType,
     UnknownType,
@@ -12,6 +13,7 @@ from .types import (
     VoidType,
     AliasType,
 )
+import itertools
 import networkx
 
 
@@ -39,6 +41,8 @@ class GTIRBLattice:
     FLOAT_N = {size: f"float{size}_t" for size in float_sizes}
 
     def __init__(self):
+        self._compare_cache = {}
+
         self._graph = networkx.DiGraph()
         self._graph.add_edge(self.TOP, self.NUM)
         self._graph.add_edge(self.TOP, self.FLOAT)
@@ -109,7 +113,7 @@ class GTIRBLattice:
             print(f"Unknown object {type_obj}")
             raise NotImplementedError()
 
-    @property
+    @cached_property
     def lattice_height(self) -> int:
         """Get the height of the lattice being used"""
         return networkx.dag_longest_path_length(self._graph)
@@ -161,6 +165,15 @@ class GTIRBLattice:
         :param rhs: Right hand side structure
         :returns: Score of structure similarity
         """
+        if (lhs.uuid, rhs.uuid) in self._compare_cache:
+            return 0.0
+
+        self._compare_cache[(lhs.uuid, rhs.uuid)] = True
+
+        if len(lhs.fields) == 0 and len(rhs.fields) == 0:
+            return 0
+        elif len(lhs.fields) == 0 or len(rhs.fields) == 0:
+            return self.lattice_height
         lhs_fieldcount = 1 - 1 / len(lhs.fields)
         rhs_fieldcount = 1 - 1 / len(rhs.fields)
         field_ratio = abs(lhs_fieldcount - rhs_fieldcount)
@@ -192,23 +205,39 @@ class GTIRBLattice:
         if not lhs.return_type or not rhs.return_type:
             raise ValueError(f"Missing return types for {lhs}/{rhs}")
 
+        ret_score = self.compare_types(lhs.return_type, rhs.return_type)
+
+        if len(lhs.argument_types) == 0 and len(rhs.argument_types) == 0:
+            return ret_score
+
         # Get all argument scores
-        arg_scores = []
+        best_arg_score = self.lattice_height
+        best_arg_scores = []
 
-        for lhs_arg, rhs_arg in zip(lhs.argument_types, rhs.argument_types):
-            if not lhs_arg or not rhs_arg:
-                raise ValueError(
-                    f"Missing argument types for {lhs_arg}/{rhs_arg}"
-                )
+        for lhs_args in itertools.combinations(
+            lhs.argument_types, len(lhs.argument_types)
+        ):
+            arg_scores = []
 
-            arg_scores.append(self.compare_types(lhs_arg, rhs_arg))
+            for lhs_arg, rhs_arg in zip(lhs_args, rhs.argument_types):
+                if not lhs_arg or not rhs_arg:
+                    raise ValueError(
+                        f"Missing argument types for {lhs_arg}/{rhs_arg}"
+                    )
+
+                arg_scores.append(self.compare_types(lhs_arg, rhs_arg))
+
+            for _ in range(abs(len(lhs_args) - len(rhs.argument_types))):
+                arg_scores.append(self.lattice_height)
+
+            arg_score = sum(arg_scores) / len(arg_scores)
+
+            if arg_score < best_arg_score:
+                best_arg_score = arg_score
+                best_arg_scores = arg_scores
 
         # Missing arguments are considered TOP
-        for _ in range(abs(len(lhs.argument_types) - len(rhs.argument_types))):
-            arg_scores.append(self.lattice_height)
-
-        ret_score = self.compare_types(lhs.return_type, rhs.return_type)
-        all_scores = arg_scores + [ret_score]
+        all_scores = best_arg_scores + [ret_score]
         return sum(all_scores) / len(all_scores)
 
     def compare_types(self, lhs: AbstractType, rhs: AbstractType) -> float:
