@@ -106,11 +106,19 @@ def test_c_str():
         c_str(FunctionType(uuid4(), types, num.uuid, [num.uuid]))
         == "uint32_t (*)(uint32_t)"
     )
-    assert c_str(PointerType(uuid4(), types, num.uuid)) == "uint32_t*"
+    num_ptr = types.add_type(PointerType(uuid4(), types, num.uuid))
+    assert c_str(num_ptr) == "uint32_t*"
     assert c_str(ArrayType(uuid4(), types, num.uuid, 4)) == "uint32_t[4]"
     assert (
         c_str(types.add_type(AliasType(uuid4(), types, num.uuid), "test"))
         == "typedef test = uint32_t"
+    )
+    type_id = uuid4()
+    calc_name = "AliasType_" + str(type_id).replace("-", "_")
+
+    assert (
+        c_str(types.add_type(AliasType(type_id, types, num.uuid)))
+        == f"typedef {calc_name} = uint32_t"
     )
     assert (
         c_str(
@@ -150,5 +158,19 @@ def test_c_str():
 \tuint32_t field_0;
 \tchar gap_4[4];
 \tuint32_t field_8;
+}"""
+    )
+    assert (
+        c_str(
+            types.add_type(
+                StructType(
+                    uuid4(), types, 12, [(8, num_ptr.uuid), (0, num_ptr.uuid)]
+                ),
+                "test",
+            )
+        )
+        == """struct test {
+\tuint32_t* field_0;
+\tuint32_t* field_8;
 }"""
     )

@@ -11,6 +11,7 @@
 # endorsement should be inferred.
 #
 import bisect
+import gtirb
 from gtirb_types.types import (
     AbstractType,
     AliasType,
@@ -27,6 +28,62 @@ from gtirb_types.types import (
 )
 
 
+def get_pointer_size(isa: gtirb.Module.ISA) -> int:
+    """Address and register sizes for a given module's ISA
+    :param module: GTIRB Module to read from
+    :returns: (ptr, reg) sizes in bits
+    """
+    if isa in (
+        gtirb.module.Module.ISA.X64,
+        gtirb.module.Module.ISA.ARM64,
+        gtirb.module.Module.ISA.MIPS64,
+        gtirb.module.Module.ISA.PPC64,
+    ):
+        return 8
+    elif isa == gtirb.module.Module.ISA.PPC32:
+        return 4
+    elif isa in (
+        gtirb.module.Module.ISA.ARM,
+        gtirb.module.Module.ISA.IA32,
+        gtirb.module.Module.ISA.MIPS32,
+    ):
+        return 4
+    else:
+        raise NotImplementedError()
+
+
+def type_size(type_: AbstractType) -> int:
+    """Get the size of a given type
+    :param type_: Type to get the size of
+    :returns: Size in bytes of that type
+    """
+    if isinstance(
+        type_,
+        (
+            CharType,
+            FloatType,
+            IntType,
+            StructType,
+        ),
+    ):
+        return type_.size
+    elif isinstance(type_, AliasType):
+        assert type_.pointed_to
+        return type_size(type_.pointed_to)
+    elif isinstance(type_, ArrayType):
+        assert type_.element_type
+        return type_.number_elements * type_size(type_.element_type)
+    elif isinstance(type_, (FunctionType, PointerType, UnknownType)):
+        module = type_.types.module
+        return get_pointer_size(module.isa)
+    elif isinstance(type_, BoolType):
+        return 1
+    elif isinstance(type_, VoidType):
+        return 0
+    else:
+        raise NotImplementedError()
+
+
 def c_str(type_: AbstractType, define: bool = True) -> str:
     """Create a C string from a type object
     :param type_: Type object to convert to a C-string
@@ -36,6 +93,13 @@ def c_str(type_: AbstractType, define: bool = True) -> str:
         definition (True), though when recursing down types it becomes False.
     :returns: The C-string
     """
+    if type_.name:
+        name = type_.name
+    else:
+        # Generate a rough/unique name in case we don't have one avaiable to us
+        uuid_str = str(type_.uuid).replace("-", "_")
+        name = f"{type(type_).__name__}_{uuid_str}"
+
     if isinstance(type_, IntType):
         signedness = "" if type_.is_signed else "u"
         return f"{signedness}int{type_.size*8}_t"
@@ -67,13 +131,18 @@ def c_str(type_: AbstractType, define: bool = True) -> str:
     elif isinstance(type_, AliasType):
         if define:
             assert type_.pointed_to
-            return f"typedef {type_.name} = {c_str(type_.pointed_to, False)}"
+            return f"typedef {name} = {c_str(type_.pointed_to, False)}"
         else:
             if type_.name:
-                return type_.name
+                return name
             elif type_.pointed_to:
                 return c_str(type_.pointed_to, False)
     elif isinstance(type_, StructType):
+        # If we've accidentally recordered "struct <x>", cut off the first part
+        # since we print the struct ourselves.
+        if name.startswith("struct "):
+            name = name[7:]
+
         if define:
             field_strs = ""
             fields = {offset: field for (offset, field) in type_.fields}
@@ -86,7 +155,7 @@ def c_str(type_: AbstractType, define: bool = True) -> str:
                     field_strs += (
                         f"\t{c_str(field_type, False)} field_{loc:x};\n"
                     )
-                    loc += field_type.size
+                    loc += type_size(field_type)
                 else:
                     field_keys = sorted(fields.keys())
                     key_index = bisect.bisect_left(field_keys, loc)
@@ -99,9 +168,9 @@ def c_str(type_: AbstractType, define: bool = True) -> str:
                     field_strs += f"\tchar gap_{loc:x}[{dist}];\n"
                     loc = field_offset
 
-            return f"struct {type_.name} {{\n{field_strs}}}"
+            return f"struct {name} {{\n{field_strs}}}"
         else:
-            return f"struct {type_.name}"
+            return f"struct {name}"
     elif isinstance(type_, FunctionType):
         ret_str = c_str(type_.return_type, False)
         args_str = ", ".join(
