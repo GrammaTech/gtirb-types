@@ -4,7 +4,7 @@ stages:
 
 test_module:
   stage: test
-  image: python:3.7-slim
+  image: python:3.8-slim
   script:
     - pip install -r requirements-dev.txt
     - flake8 gtirb_types/
@@ -29,7 +29,7 @@ test_module:
 #   - The -dev package on the default branch is always the newest version in the repository
 export_internal:
   stage: export
-  image: python:3.7-slim
+  image: python:3.8-slim
   script:
     - pip install -r requirements-dev.txt
     - python3 setup.py bdist_wheel --dist-dir=$CI_PROJECT_DIR/dist
@@ -62,7 +62,7 @@ export_internal:
 
 export_external:
   stage: export
-  image: python:3.7-slim
+  image: python:3.8-slim
   script:
     - pip install -r requirements-dev.txt
     - python3 setup.py bdist_wheel --dist-dir=$CI_PROJECT_DIR/dist
