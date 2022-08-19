@@ -28,21 +28,21 @@ from gtirb_types.types import (
 )
 
 
-def get_pointer_size(module: gtirb.Module) -> int:
+def get_pointer_size(isa: gtirb.Module.ISA) -> int:
     """Address and register sizes for a given module's ISA
     :param module: GTIRB Module to read from
     :returns: (ptr, reg) sizes in bits
     """
-    if module.isa in (
+    if isa in (
         gtirb.module.Module.ISA.X64,
         gtirb.module.Module.ISA.ARM64,
         gtirb.module.Module.ISA.MIPS64,
         gtirb.module.Module.ISA.PPC64,
     ):
         return 8
-    elif module.isa == gtirb.module.Module.ISA.PPC32:
+    elif isa == gtirb.module.Module.ISA.PPC32:
         return 4
-    elif module.isa in (
+    elif isa in (
         gtirb.module.Module.ISA.ARM,
         gtirb.module.Module.ISA.IA32,
         gtirb.module.Module.ISA.MIPS32,
@@ -75,7 +75,7 @@ def type_size(type_: AbstractType) -> int:
         return type_.number_elements * type_size(type_.element_type)
     elif isinstance(type_, (FunctionType, PointerType, UnknownType)):
         module = type_.types.module
-        return get_pointer_size(module)
+        return get_pointer_size(module.isa)
     elif isinstance(type_, BoolType):
         return 1
     elif isinstance(type_, VoidType):
