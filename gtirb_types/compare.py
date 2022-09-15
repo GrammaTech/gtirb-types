@@ -1,4 +1,5 @@
 from functools import cached_property
+from typing import Set, Tuple
 from .types import (
     AbstractType,
     UnknownType,
@@ -13,8 +14,8 @@ from .types import (
     VoidType,
     AliasType,
 )
-import itertools
 import networkx
+import uuid
 
 
 class GTIRBLattice:
@@ -122,7 +123,8 @@ class GTIRBLattice:
         """Get the height between two lattice elments
         :param lhs: Left hand side type to compare
         :param rhs: Right hand side type to compare
-        :returns: Height between two lattice elements"""
+        :returns: Height between two lattice elements
+        """
         if rhs in self._lengths[lhs]:
             return self._lengths[lhs][rhs]
         elif lhs in self._lengths[rhs]:
@@ -134,12 +136,13 @@ class GTIRBLattice:
         """Compute pointer accuracy between types
         :param lhs: Left hand side type to compare
         :param rhs: Right hand side type to compare
-        :returns: Multi-level pointer accuracy metric"""
+        :param visited: Set of pairs already visited
+        :returns: Multi-level pointer accuracy metric
+        """
         num_correct = 0
         total_number = 0
 
         while lhs and isinstance(lhs, PointerType):
-            print(type(lhs), type(rhs))
             if rhs and isinstance(rhs, PointerType):
                 rhs = rhs.pointed_to
                 num_correct += 1
@@ -159,17 +162,18 @@ class GTIRBLattice:
 
         return num_correct / total_number
 
-    def compare_structs(self, lhs: StructType, rhs: StructType) -> float:
+    def compare_structs(
+        self,
+        lhs: StructType,
+        rhs: StructType,
+        visited: Set[Tuple[uuid.UUID, uuid.UUID]],
+    ) -> float:
         """Do a structure-to-structure comparison
         :param lhs: Left hand side structure
         :param rhs: Right hand side structure
+        :param visited: Set of pairs already visited
         :returns: Score of structure similarity
         """
-        if (lhs.uuid, rhs.uuid) in self._compare_cache:
-            return 0.0
-
-        self._compare_cache[(lhs.uuid, rhs.uuid)] = True
-
         if len(lhs.fields) == 0 and len(rhs.fields) == 0:
             return 0
         elif len(lhs.fields) == 0 or len(rhs.fields) == 0:
@@ -189,17 +193,25 @@ class GTIRBLattice:
 
         for i in valid_offsets:
             if i in lhs_fields and i in rhs_fields:
-                avg += self.compare_types(lhs_fields[i], rhs_fields[i])
+                avg += self.compare_types(
+                    lhs_fields[i], rhs_fields[i], visited
+                )
             else:
                 avg += self.lattice_height
 
         avg /= len(valid_offsets)
         return field_ratio + avg / self.lattice_height
 
-    def compare_functions(self, lhs: FunctionType, rhs: FunctionType) -> float:
+    def compare_functions(
+        self,
+        lhs: FunctionType,
+        rhs: FunctionType,
+        visited: Set[Tuple[uuid.UUID, uuid.UUID]],
+    ) -> float:
         """Do a function-wise comparison of types
         :param lhs: Left hand side function type
         :param rhs: Right hand side function type
+        :param visited: Set of pairs already visited
         :returns: Average score of types
         """
         if not lhs.return_type or not rhs.return_type:
@@ -211,52 +223,57 @@ class GTIRBLattice:
             return ret_score
 
         # Get all argument scores
-        best_arg_score = self.lattice_height
-        best_arg_scores = []
+        arg_scores = []
 
-        for lhs_args in itertools.combinations(
-            lhs.argument_types, len(lhs.argument_types)
-        ):
-            arg_scores = []
+        for lhs_arg, rhs_arg in zip(lhs.argument_types, rhs.argument_types):
+            if not lhs_arg or not rhs_arg:
+                raise ValueError(
+                    f"Missing argument types for {lhs_arg}/{rhs_arg}"
+                )
 
-            for lhs_arg, rhs_arg in zip(lhs_args, rhs.argument_types):
-                if not lhs_arg or not rhs_arg:
-                    raise ValueError(
-                        f"Missing argument types for {lhs_arg}/{rhs_arg}"
-                    )
-
-                arg_scores.append(self.compare_types(lhs_arg, rhs_arg))
-
-            for _ in range(abs(len(lhs_args) - len(rhs.argument_types))):
-                arg_scores.append(self.lattice_height)
-
-            arg_score = sum(arg_scores) / len(arg_scores)
-
-            if arg_score < best_arg_score:
-                best_arg_score = arg_score
-                best_arg_scores = arg_scores
+            arg_scores.append(self.compare_types(lhs_arg, rhs_arg, visited))
 
         # Missing arguments are considered TOP
-        all_scores = best_arg_scores + [ret_score]
+        for _ in range(abs(len(lhs.argument_types) - len(rhs.argument_types))):
+            arg_scores.append(self.lattice_height)
+
+        all_scores = arg_scores + [ret_score]
         return sum(all_scores) / len(all_scores)
 
-    def compare_types(self, lhs: AbstractType, rhs: AbstractType) -> float:
+    def compare_types(
+        self,
+        lhs: AbstractType,
+        rhs: AbstractType,
+        visited: Set[Tuple[uuid.UUID, uuid.UUID]] = None,
+    ) -> float:
         """Compare type information for gtirb-types objects
         :param lhs: Left hand side structure
         :param rhs: Right hand side structure
+        :param visited: Set of pairs already visited
         :returns: Score of structure similarity
         """
+        if visited is None:
+            visited = set()
+        elif (lhs.uuid, rhs.uuid) in visited:
+            return 0.0
+
+        visited = visited | {(lhs.uuid, rhs.uuid)}
+
         if isinstance(lhs, AliasType):
-            return self.compare_types(lhs.pointed_to, rhs)
+            assert lhs.pointed_to
+            return self.compare_types(lhs.pointed_to, rhs, visited)
         elif isinstance(rhs, AliasType):
-            return self.compare_types(lhs, rhs.pointed_to)
+            assert rhs.pointed_to
+            return self.compare_types(lhs, rhs.pointed_to, visited)
 
         if isinstance(lhs, StructType) and isinstance(rhs, StructType):
-            return self.compare_structs(lhs, rhs)
+            return self.compare_structs(lhs, rhs, visited)
         elif isinstance(lhs, FunctionType) and isinstance(rhs, FunctionType):
-            return self.compare_functions(lhs, rhs)
+            return self.compare_functions(lhs, rhs, visited)
         elif isinstance(lhs, PointerType) and isinstance(rhs, PointerType):
-            return self.compare_types(lhs.pointed_to, rhs.pointed_to)
+            assert lhs.pointed_to
+            assert rhs.pointed_to
+            return self.compare_types(lhs.pointed_to, rhs.pointed_to, visited)
         elif isinstance(
             lhs, (FunctionType, PointerType, ArrayType, StructType)
         ) or isinstance(
@@ -268,7 +285,4 @@ class GTIRBLattice:
             lhs_lat = self.from_type(lhs)
             rhs_lat = self.from_type(rhs)
 
-            lhs_score = self.compare_lattice(lhs_lat, rhs_lat)
-            rhs_score = self.compare_lattice(lhs_lat, rhs_lat)
-
-            return min(lhs_score, rhs_score)
+            return self.compare_lattice(lhs_lat, rhs_lat)
