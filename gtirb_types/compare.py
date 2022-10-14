@@ -124,6 +124,8 @@ class GTIRBLattice:
         :param lhs: Left hand side type to compare
         :param rhs: Right hand side type to compare
         :returns: Height between two lattice elements
+        0 - for two types that are the same.
+        lattice_height - for two unrelated types.
         """
         if rhs in self._lengths[lhs]:
             return self._lengths[lhs][rhs]
@@ -137,7 +139,8 @@ class GTIRBLattice:
         :param lhs: Left hand side type to compare
         :param rhs: Right hand side type to compare
         :param visited: Set of pairs already visited
-        :returns: Multi-level pointer accuracy metric
+        :returns: Multi-level pointer accuracy metric.
+        0 is no accuracy, 1 is perfect accuracy.
         """
         num_correct = 0
         total_number = 0
@@ -172,7 +175,8 @@ class GTIRBLattice:
         :param lhs: Left hand side structure
         :param rhs: Right hand side structure
         :param visited: Set of pairs already visited
-        :returns: Score of structure similarity
+        :returns: Score of structure distance
+        0 - no distance, 1 maximum distance?
         """
         if len(lhs.fields) == 0 and len(rhs.fields) == 0:
             return 0
@@ -251,6 +255,7 @@ class GTIRBLattice:
         :param rhs: Right hand side structure
         :param visited: Set of pairs already visited
         :returns: Score of structure similarity
+        0 for perfect similarity.
         """
         if visited is None:
             visited = set()

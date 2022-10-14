@@ -19,6 +19,10 @@ import uuid
 def aggregate_user_def(
     type_: AbstractType, aggregate: Dict[uuid.UUID, AbstractType]
 ):
+    """
+    Recursively collect a map from UUID to AbstractType
+    with all the sub-types in `type_`.
+    """
     if type_.uuid in aggregate or not type_:
         return
 
