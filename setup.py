@@ -24,12 +24,15 @@ setup(
     long_description_content_type="text/markdown",
     classifiers=[
         "Intended Audience :: Developers",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
     ],
     keywords="",
     entry_points={
-        "console_scripts": ["gtirb_types=gtirb_types.graph:main"],
+        "console_scripts": [
+            "gtirb-types=gtirb_types.graph:main",
+            "gtirb-types-strip=gtirb_types.strip:main",
+            "gtirb-types-evaluate=gtirb_types.evaluate:main",
+        ],
     },
     package_dir={"gtirb_types": "gtirb_types"},
     packages=["gtirb_types"],

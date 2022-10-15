@@ -1,2 +1,3 @@
 gtirb~=1.10.7.dev0
+gtirb_functions
 graphviz
