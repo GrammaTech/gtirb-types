@@ -18,7 +18,7 @@ test_module:
       junit: report.xml
       cobertura: coverage.xml
   tags:
-    - kubernetes
+    - shared
 
 # This job ensures that:
 #   - Release branches never publish -dev packages, and packages
@@ -55,7 +55,7 @@ export_internal:
     - sed "s/password = <access token>/password = $GL_PKG_API_TOKEN/" $CI_PROJECT_DIR/.pypirc > ~/.pypirc
     - python3 -m twine upload --verbose --repository repypi $CI_PROJECT_DIR/dist/*.whl
   tags:
-    - kubernetes
+    - shared
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_COMMIT_REF_NAME =~ /^release-.*/'
@@ -71,6 +71,6 @@ export_external:
     - if [[ "$VERSION" =~ \.dev[[:digit:]]*.*$ ]]; then exit 1; fi
     - python3 -m twine upload --verbose $CI_PROJECT_DIR/dist/*.whl -u __token__ -p $PYPI_API_KEY
   tags:
-    - kubernetes
+    - shared
   rules:
     - if: '$CI_COMMIT_REF_NAME =~ /^release-.*/'
